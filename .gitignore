@@ -30,12 +30,11 @@ outputs/
 *.jpeg
 
 # ---------------------------------------------------------------------------
-# Generated manuscript artifacts (rebuild with scripts/build_manuscript.py)
+# Manuscript (kept out of the repository)
 # ---------------------------------------------------------------------------
-manuscript/*.docx
-manuscript/files/
-manuscript/files.zip
-~$*.docx
+manuscript/
+manuscript_ieee.csl
+scripts/build_manuscript.py
 
 # ---------------------------------------------------------------------------
 # Reference material that is not part of the codebase

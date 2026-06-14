@@ -8,9 +8,9 @@ becomes the per-edge cost of a min-cost-flow solver, so the unwrapped field is
 **residue-free by construction** while the statistical model that drives it is
 learned from data.
 
-This is the reference implementation for the manuscript
+This is the reference implementation for the work
 *"Learned Statistical Costs for Network-Flow InSAR Phase Unwrapping"*
-(Simon Dagbanja). The manuscript source is in [`manuscript/`](manuscript/).
+(Simon Dagbanja).
 
 ## Results
 
@@ -75,8 +75,7 @@ src/          Core package
   models/           Swin + LoRA edge head, decoder, integrator
   dataset.py        InSAR-DLPU (.mat) and GeoTIFF loaders
   synthetic_engine.py  physics-based interferogram generator
-scripts/      Entry points (eval, real-scene unwrapping, GPS, figures, manuscript)
-manuscript/   Paper source (Markdown + LaTeX math), references, build script
+scripts/      Entry points (eval, real-scene unwrapping, GPS, figures)
 run_train.sh  Remote GPU launcher (forwards Hydra overrides)
 ```
 
@@ -130,11 +129,10 @@ python -m src.train regime=pretrain data.source=dlpu data.batch_size=8 \
     model.decoder.head_type=edge logging.backend=none
 ```
 
-Regenerate the summary figures and build the manuscript:
+Regenerate the summary figures:
 
 ```bash
 python -m scripts.make_figures        # bar charts into outputs/
-python scripts/build_manuscript.py    # manuscript.docx + IEEE two-column docx
 ```
 
 ## Synthetic engine
