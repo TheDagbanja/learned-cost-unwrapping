@@ -1,0 +1,150 @@
+# Top-level Hydra config. Composes the data and model groups and holds the
+# training / adaptation / logging hyperparameters. Override anything on the CLI:
+#   python src/train.py data.batch_size=16 train.lr=1e-3 regime=tta
+
+defaults:
+  - data
+  - model
+  - _self_
+
+# Keep the launch directory as cwd so relative paths like ./data keep working.
+hydra:
+  job:
+    chdir: false
+
+# Reproducibility
+seed: 42
+deterministic: true
+
+# Device: "cuda" auto-falls back to CPU when no GPU is present (get_device).
+device: cuda
+
+# Adaptation regime: zero_shot | tta | kshot  (wired up in Phases 3-4)
+regime: pretrain
+
+train:
+  epochs: 100
+  lr: 2.0e-4
+  weight_decay: 0.05
+  optimizer: adamw
+  grad_clip: 1.0
+  amp: true                 # mixed precision on GPU
+  warmup_epochs: 1          # linear LR warmup, then cosine decay (stabilises full FT)
+  curriculum: true          # synthetic only: ramp difficulty easy->target over epochs
+  curriculum_start: 0.25    # starting difficulty
+  curriculum_epochs: 20     # epochs to reach data.synthetic.difficulty
+  # Loss weights. Proposal Eq. 9 uses lambda1=1.0, but L_cong is backpropagated
+  # through the Poisson solver (inverse Laplacian -> ill-conditioned, low-frequency
+  # gradient) and during *supervised* pretraining the clean signal is L_CE on the
+  # ground-truth ambiguity labels. So pretraining is CE-dominant: L_cong is a light
+  # regulariser here and carries its full weight only in unsupervised TTA (Eq. 10).
+  # L_cong (re-wrap consistency) is backpropagated through the Poisson solver,
+  # whose inverse-Laplacian gradient is ill-conditioned and destabilises training
+  # -- so it is OFF for pretraining. Its role (penalising residues = false cuts)
+  # is filled by L_curl, the LOCAL loop-curl residue loss (no solver, stable).
+  lambda_cong: 0.0
+  lambda_curl: 1.0          # (edge head) weight on the residue loop-curl loss
+  lambda_ktv: 0.01          # (pixel head) total-variation prior on wrap count K
+  lambda_kreg: 1.0          # (pixel_cls head) ordinal term: smooth-L1(E[K], K_gt)
+  # L_sparse pushes p(k=0)->1, which directly opposes predicting cuts and helps the
+  # model collapse to "no corrections". During SUPERVISED pretraining the CE labels
+  # already encode sparsity, so disable it here; it belongs to unsupervised TTA.
+  lambda_sparse: 0.0
+  # Cut classification loss: 'ce' (weighted cross-entropy) or 'focal'. Focal
+  # concentrates on hard edges; combined with an alpha it resists both collapse
+  # (predicting no cuts) and over-prediction.
+  cut_loss: focal
+  focal_gamma: 2.0
+  # Per-class weighting (focal alpha). Standard focal needs an alpha to overcome
+  # extreme imbalance -- with 'none' the model collapses to all-k=0. inverse_sqrt
+  # (k=0 weight ~0.15) is the balanced default; use 'inverse' if cuts are still
+  # under-predicted, 'none' only if it over-predicts. none|inverse_sqrt|inverse|median.
+  ce_class_weights: inverse_sqrt
+  # Straight-through integration (integrate hard argmax, soft E[k] gradient).
+  # Off for supervised pretraining (CE already supervises the argmax); useful for
+  # unsupervised TTA where there is no CE to anchor the argmax.
+  straight_through: false
+  # Per-epoch validation: report unwrapping RMSE on a few `val_split` batches so
+  # the real metric is visible during training (0 = off).
+  val_every: 1
+  val_split: test
+  val_batches: 20
+  # End-to-end differentiable cost fine-tune (scripts/train_diff.py):
+  steps: 300                # optimizer steps (each solves MCF twice/image)
+  diff_lam: 20.0            # blackbox-solver gradient interpolation strength
+
+tta:                        # unsupervised test-time adaptation (Eq. 10)
+  steps: 10
+  lr: 1.0e-4
+  lambda_sparse: 0.05
+  lambda_ent: 1.0           # lambda_3 on the entropy term
+  # Augmentation-consistency: phi_hat must be invariant to a D4 symmetry of the
+  # input and to added wrapped-phase noise. This is the dominant unsupervised
+  # signal under large shift (entropy alone is flat when the model is confidently
+  # wrong). lambda_consistency=0 falls back to pure TENT.
+  lambda_consistency: 1.0
+  aug_noise_std: 0.3        # std (radians) of the phase noise on the augmented view
+
+kshot:                      # few-shot target adaptation
+  k: 5                      # shots in {1, 5, 10, 20, 50}
+  steps: 50
+  lr: 1.0e-4
+  # Edge head only: "prototypical" (proposal §3.6) or "supervised" (LoRA fine-tune
+  # on the support edge labels, saves an adapted checkpoint to score with MCF --
+  # the 'adapt the costs' lever for the learned-cost network-flow method).
+  mode: prototypical
+  # supervised mode: size of the FIXED held-out query (same scenes for every K, so
+  # the K-curve is clean). Support is drawn from the disjoint remainder. 0 = n/2.
+  n_query: 0
+
+eval:                       # zero_shot / evaluate.py settings
+  split: test_real          # default out-of-distribution target
+  max_batches: null         # cap evaluated batches (null = all)
+  # Apply a predicted cut only when its class probability exceeds this threshold
+  # (0 = pure argmax). Raising it (e.g. 0.6-0.9) suppresses low-confidence, likely
+  # wrong cuts -- each false cut is a catastrophic 2*pi error after integration.
+  cut_threshold: 0.0
+  # Correctness probe: integrate the GROUND-TRUTH ambiguity through the real
+  # integrator (should give ~0.87 RMSE on DLPU 'test'); isolates code from training.
+  oracle: false
+  # Test-time augmentation (pixel heads): average the wrap count over the 8 D4
+  # views before rounding. Reduces boundary/regional errors, no retraining.
+  tta: false
+  # --- learned-cost MCF eval (scripts/eval_learned_mcf.py) ---
+  snaphu: false             # add the real SNAPHU baseline (needs: pip install snaphu)
+  oracle_cost: true         # compute the GT-cost ceiling (1 extra MCF solve/scene; off = faster)
+
+# Stage-3 real Sentinel-1 case study (scripts/unwrap_geotiff.py).
+# Tiles a wrapped-phase/coherence GeoTIFF ROI through the edge head -> learned MCF
+# costs -> residue-free unwrap, compared to the bundled SNAPHU result.
+geotiff:
+  dir: null                 # HyP3 product folder (auto-finds *_wrapped_phase/_corr/_unw_phase.tif)
+  wrapped: null             # or explicit paths (override dir)
+  corr: null
+  unw: null                 # SNAPHU reference (for comparison)
+  row0: 512                 # ROI top-left row  (Ridgecrest rupture ~row 896, col 1536)
+  col0: 1152                # ROI top-left col
+  size: 768                 # ROI side length (square); MCF runs on the full ROI
+  auto_roi: false           # auto-locate the best valid high-deformation window (any scene)
+  min_valid: 0.98           # auto_roi: required fraction of valid (coherent) pixels
+  center_lon: null          # if set with center_lat, center the ROI on this epicenter
+  center_lat: null          # (robust on low-coh scenes; overrides auto_roi)
+  coh_weight: 3.0           # combined cost: learned_NLL + coh_weight * coherence cost
+                            # (learned+statistical ML cost; 0 = pure learned)
+  tile: 256                 # edge-head tile size (matches training)
+  stride: 128               # tile stride (overlap-averaged logits)
+  out: ./outputs/ridgecrest # output prefix for GeoTIFF + figures
+
+logging:
+  backend: wandb            # wandb | tensorboard | none
+  project: insar-peft-unwrap
+  run_name: null
+  log_dir: ./outputs
+  log_every: 50
+  vis_every: 500            # log wrapped-vs-unwrapped sample figures
+  verbose: false            # true -> restore full INFO logs (else only bars + summaries)
+
+checkpoint:
+  dir: ./checkpoints
+  save_every: 1             # epochs
+  resume: null              # path to resume from

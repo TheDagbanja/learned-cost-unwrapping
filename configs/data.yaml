@@ -1,0 +1,73 @@
+# @package data
+# Dataset configuration for the InSAR-DLPU benchmark and Stream C GeoTIFFs.
+# Consumed by src/dataset.py::build_dataloader. Override on the CLI, e.g.:
+#   python src/train.py data.batch_size=16 data.num_workers=8
+
+# data.source selects the loader: "dlpu" (.mat benchmark) or "geotiff" (real S1).
+source: dlpu
+
+# Spatial size the Swin encoder is built for, and the split used by the
+# zero_shot / tta regimes (train always uses the 'train' split).
+img_size: 256
+split: test_real
+
+# Input encoding: (cos psi, sin psi) plus, when true, the wrapped phase
+# gradients W(dpsi)_x/y as extra channels (4 total). This hands the classifier
+# the local cut cue directly. The model's in_chans is auto-synced to this.
+input_grad: true
+
+# Root may point at any ancestor of the split folders; the triple-nested
+# release layout is resolved automatically (see resolve_dlpu_root).
+root: ./data
+
+# Compute per-edge ambiguity labels from the absolute phase. Set false to
+# emulate the label-free test-time-adaptation setting.
+return_labels: true
+clamp_k: true          # clamp k_e to {-1, 0, +1}
+limit: null            # cap samples per split (null = use all); handy for CPU tests
+
+# --- Train-time augmentation (sim->real robustness; TRAIN split only) ---
+# Widens the training noise/geometry distribution toward the real regime so the
+# prior is less confidently-wrong on TanDEM-X (raises the OOD floor AND gives
+# entropy/consistency TTA something to work with). Labels are recomputed exactly
+# from the augmented (wrapped, absolute) pair, so this never corrupts targets.
+# enabled=false reproduces the un-augmented prior.
+augment:
+  enabled: true
+  prob: 0.9             # fraction of samples augmented
+  d4: true             # random D4 symmetry (geometry only)
+  # Evidence-based ranges from scripts/diagnose_real_gap.py: test_real is SMOOTHER
+  # (fringe ~0.30 vs sim 0.60 rad/px) and NOISIER (oracle floor 1.55 vs 0.75 rad).
+  # So scale fringes DOWN and push noise UP to span sim->real marginals.
+  scale: [0.40, 1.10]   # fringe-density jitter (allow much smoother, real-like fields)
+  noise_std: [0.3, 2.5] # extra decorrelation noise std (radians); patchy field halves
+                        # effective noise, so the ceiling reaches the real ~1.55 floor
+  patchy: true         # modulate extra noise by a smooth low-coherence field
+  patch_scale: 32.0    # blur sigma (px) of the patchy field
+
+# DataLoader settings (tune per machine; defaults suit a single GPU).
+batch_size: 8
+num_workers: 4
+pin_memory: null       # null -> auto (true only on CUDA)
+drop_last: null        # null -> true for the train split
+
+# --- Stream C (data.source = geotiff) only ---
+files: null            # list / directory / glob of multi-band GeoTIFFs
+wrapped_band: 1        # 1-indexed: band 1 = wrapped phase
+coherence_band: 2      # band 2 = coherence -> edge weights w_e (Eq. 4)
+absolute_band: null    # optional unwrapped reference band for evaluation
+weight_reduce: mean    # combine endpoint coherences: mean | min | geo
+
+# --- Synthetic engine (data.source = synthetic) only ---
+# On-the-fly Okada/Mogi/subsidence + atmosphere + coherence-driven noise.
+# Produces a coherence band (unlike DLPU), so the model can handle decorrelation.
+epoch_size: 30000      # synthetic samples per training epoch
+val_size: 500          # deterministic synthetic samples for validation/eval
+synthetic:
+  img_size: 256
+  pixel_spacing_m: 90.0
+  wavelength_m: 0.0555         # Sentinel-1 C-band
+  incidence_deg: 38.0
+  looks: 8                     # more looks -> higher coherence -> less noise
+  coherence_mean: [0.4, 0.95]  # [min, max] of the coherence field
+  difficulty: 0.5             # signal scale -> fringe density. ~0.5 ~ realistic (~3% cuts)

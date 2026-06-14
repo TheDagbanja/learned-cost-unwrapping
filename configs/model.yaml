@@ -1,0 +1,41 @@
+# @package model
+# Model configuration: Swin-T backbone, targeted LoRA, U-Net decoder.
+# Fully consumed in Phase 2; values fixed here per the proposal (§3.3).
+
+backbone:
+  name: swin_tiny_patch4_window7_224   # timm Swin-T identifier
+  pretrained_synthetic: null           # path to synthetic-interferogram weights
+  pretrained_imagenet: true            # init from ImageNet while no synthetic prior
+                                        # exists (much better than random for pretrain)
+  in_chans: 4                          # auto-synced to data.input_grad (2 or 4)
+  freeze: true                         # initial state; the regime (set_adaptation_mode)
+                                        # is authoritative: pretrain=full FT, tta/kshot=LoRA-only
+
+lora:
+  rank: 8                              # r = 8
+  alpha: 16                            # alpha = 16  (scaling = alpha / r = 2.0)
+  dropout: 0.0
+  targets: [q, v]                      # inject ONLY into Wq and Wv
+
+decoder:
+  type: unet                           # U-Net over Swin features + full-res stem
+  channels: [256, 128, 96, 64, 32]     # 5 blocks: 3 Swin skips (s16/s8/s4) + 2 stem (s2/s1)
+  stem_channels: [48, 32]              # full-res stem skip widths (stride-2, stride-1)
+  # Prediction head:
+  #   'pixel' -> per-pixel wrap count K, phi_hat = psi + 2*pi*K (residue-free,
+  #              local errors, robust -> recommended for hitting RMSE targets).
+  #   'pixel_cls' -> per-pixel wrap count via CLASSIFICATION over [-k_max,k_max]
+  #              (crisper at fringe boundaries; PhaseNet-2.0 style; residue-free).
+  #   'edge'  -> per-edge ambiguity {-1,0,+1} + weighted-LS integration (proposal
+  #              core; brittle to classification errors).
+  head_type: pixel
+  k_max: 16                            # (pixel_cls) wrap-count classes = [-k_max, k_max]
+  num_directions: 2                    # (edge head) horizontal + vertical edges
+  num_classes: 3                       # (edge head) ambiguity classes {-1, 0, +1}
+  out_channels: 6                      # (edge head) 2 directions x 3 classes
+
+integrator:
+  solver: auto                         # 'auto' (DCT if weights uniform else CG) | 'dct' | 'cg'
+  cg_iters: 50                         # used when solver == 'cg'
+  cg_tol: 1.0e-6
+  weight_reduce: mean                  # coherence -> edge weight reduction

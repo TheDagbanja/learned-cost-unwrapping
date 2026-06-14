@@ -1,0 +1,45 @@
+# ---------------------------------------------------------------------------
+# Physics-Guided PEFT InSAR Phase Unwrapping — Python dependencies
+#
+# Tested target: Python 3.10 / 3.11 on a Linux server with CUDA 12.x.
+# Local CPU-only development also works (omit the CUDA build of torch).
+#
+# Install (remote GPU box):
+#   pip install -r requirements.txt
+# For a specific CUDA build of PyTorch, install torch/torchvision first from
+# https://pytorch.org/get-started/locally/ , then run the line above.
+# ---------------------------------------------------------------------------
+
+# --- Core deep learning ---
+torch>=2.1,<2.6           # autograd, conv/attention, differentiable solver
+torchvision>=0.16         # transforms, image utilities
+timm>=0.9.12              # Swin-Transformer-Tiny backbone + feature extraction
+einops>=0.7               # readable tensor reshapes used around attention
+
+# --- Configuration & experiment management ---
+hydra-core>=1.3           # composable YAML configs + CLI overrides
+omegaconf>=2.3            # structured config backend used by Hydra
+wandb>=0.16               # primary experiment tracker (loss/adaptation curves)
+tensorboard>=2.14         # offline fallback logger
+
+# --- Scientific stack ---
+numpy>=1.24,<2.1
+scipy>=1.10               # loadmat (.mat v5), DCT-based Poisson solver
+scikit-image>=0.21        # optional phase/residue utilities for evaluation
+
+# --- Minimum-cost-flow solver backends ---
+ortools>=9.7              # fast, exact network-simplex backend for the MCF solver
+networkx>=3.1             # pure-python fallback solver
+
+# --- Geospatial I/O (Stream C: real Sentinel-1 GeoTIFF / ENVI) ---
+rasterio>=1.3             # multi-band GeoTIFF / ENVI reader (wrapped + coherence)
+
+# --- HDF5 / MATLAB v7.3 fallback ---
+h5py>=3.8                 # reads .mat files saved in v7.3 (HDF5) format
+
+# --- Visualization & UX ---
+matplotlib>=3.7           # wrapped/unwrapped sample figures for logging
+tqdm>=4.65                # progress bars
+
+# --- Quality of life ---
+pyyaml>=6.0
