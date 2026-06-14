@@ -1,12 +1,6 @@
 # Learned Statistical Costs for Network-Flow InSAR Phase Unwrapping
 
-A phase unwrapper that keeps the rigorous minimum-cost-flow solver of SNAPHU and
-**learns its cost function** instead of deriving it by hand. A Swin Transformer
-with low-rank adaptation predicts, for every edge of the interferogram grid, a
-probability over the integer ambiguity. The negative log of that probability
-becomes the per-edge cost of a min-cost-flow solver, so the unwrapped field is
-**residue-free by construction** while the statistical model that drives it is
-learned from data.
+A deep-learning-augmented phase unwrapping framework that preserves the global optimality of minimum-cost-flow solvers while learning scene-adaptive cost functions from data. Instead of parametric models, a vision transformer estimates per-edge ambiguity distributions whose negative log-likelihoods serve as solver inputs. This decoupled design ensures zero-residue outputs regardless of the learned prior's accuracy.
 
 This is the reference implementation for the work
 *"Learned Statistical Costs for Network-Flow InSAR Phase Unwrapping"*
