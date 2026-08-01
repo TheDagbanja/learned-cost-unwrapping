@@ -49,6 +49,31 @@ def residues(psi: np.ndarray) -> np.ndarray:
     return np.round(curl / TWO_PI).astype(np.int64)
 
 
+def aligned_gtk_floor(psi: np.ndarray, phi: np.ndarray, n_offsets: int = 128) -> float:
+    """Lower bound on mean-aligned RMSE over every congruent unwrapping of ``psi``.
+
+    Any congruent field is ``phi_hat = psi + 2*pi*K``. The evaluation metric
+    subtracts the mean residual, i.e. it grants a free global offset ``c``, so the
+    optimal integer field must be chosen jointly with that offset::
+
+        floor = min_c  std( wrap( (phi - psi) - c ) )
+
+    which is the closed form of
+    ``min_c aligned_rmse(psi + 2*pi*round((phi - psi - c)/2*pi), phi)``.
+
+    The earlier definition fixed ``c = 0`` (per-pixel nearest integer). That
+    minimises the *unaligned* residual and is therefore NOT a bound for the
+    mean-aligned metric -- methods beat it on ~1 scene in 4 (see
+    ``audit/DIAGNOSIS.md`` sec.3-I1). Near ``+/-pi`` the per-pixel rounding splits
+    neighbouring pixels between ``+pi`` and ``-pi``, giving a bimodal, high-variance
+    residual; committing one integer across a region is lower-variance once the
+    mean is removed.
+    """
+    e = np.asarray(phi, dtype=np.float64) - np.asarray(psi, dtype=np.float64)
+    return float(min(wrap(e - c).std()
+                     for c in np.linspace(0.0, TWO_PI, int(n_offsets), endpoint=False)))
+
+
 def quality_map(psi: np.ndarray, win: int = 5) -> np.ndarray:
     """Phase-derivative-variance quality -> pseudo-coherence in [0,1].
 

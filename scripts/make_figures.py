@@ -26,7 +26,7 @@ plt.rcParams.update({"font.size": 9, "font.family": "DejaVu Sans", "axes.grid": 
 
 def benchmark_bar():
     methods = ["LS", "Quality-guided", "Goldstein", "Unit-cost MCF", "SNAPHU",
-               "Learned MCF", "Oracle MCF"]
+               "Learned MCF", "GT-grad MCF"]
     rmse = [4.327, 4.079, 8.368, 2.315, 1.714, 0.895, 0.839]
     colors = ["#9e9e9e", "#9e9e9e", "#9e9e9e", "#6baed6", "#2171b5", "#d62728", "#7fbf7b"]
     fig, ax = plt.subplots(figsize=(3.4, 2.5))

@@ -39,17 +39,21 @@ def ls_unwrap(psi: np.ndarray) -> np.ndarray:
     return phi.squeeze(0).numpy()
 
 
-def oracle_floor(psi: np.ndarray, phi: np.ndarray) -> float:
-    """RMSE of the GT-integer reconstruction = irreducible noise floor."""
-    k = np.round((phi - psi) / mcf.TWO_PI)
-    return aligned_rmse(psi + mcf.TWO_PI * k, phi)
+def gtk_floor(psi: np.ndarray, phi: np.ndarray) -> float:
+    """Irreducible noise floor: best mean-aligned RMSE over all congruent fields.
+
+    Optimises the integer field jointly with the alignment offset (see
+    mcf.aligned_gtk_floor / audit/DIAGNOSIS.md sec.3-I1).
+    """
+    return mcf.aligned_gtk_floor(psi, phi)
 
 
-def oracle_costs(psi: np.ndarray, phi: np.ndarray):
+def gt_gradient_costs(psi: np.ndarray, phi: np.ndarray):
     """Per-edge costs from GROUND-TRUTH cuts: cheap on true-cut edges, dear else.
 
-    Upper bound on what any cost-learning method can achieve with this solver:
-    if oracle-cost MCF approaches the floor, learned costs have a high ceiling.
+    A reference cost, NOT an upper bound (audit/DIAGNOSIS.md sec.1): matching the
+    true per-edge field k* does not minimise RMSE under noise, so this row can be
+    beaten. The offset-aligned GT-K floor is the only genuine ceiling.
     """
     dx_w = mcf.wrap(psi[:, 1:] - psi[:, :-1])
     dy_w = mcf.wrap(psi[1:, :] - psi[:-1, :])
@@ -78,7 +82,7 @@ def main() -> None:
     ds = dataset_module.build_dataset(cfg, args.split)
     n = min(args.n, len(ds))
 
-    rows = {"LS": [], "QG": [], "Goldstein": [], "SNAPHU": [], "MCF": [], "MCF+statcost": [], "MCF+oracle": []}
+    rows = {"LS": [], "QG": [], "Goldstein": [], "SNAPHU": [], "MCF": [], "MCF+statcost": [], "MCF+GTgrad": []}
     res_in, floor = [], []
     for i in range(n):
         s = ds[i]
@@ -88,7 +92,7 @@ def main() -> None:
         phi = s["absolute"][0].numpy().astype(np.float64)
 
         res_in.append(int(np.abs(mcf.residues(psi)).sum()))
-        floor.append(oracle_floor(psi, phi))
+        floor.append(gtk_floor(psi, phi))
         rows["LS"].append(aligned_rmse(ls_unwrap(psi), phi))
         rows["QG"].append(aligned_rmse(baselines.quality_guided_unwrap(psi), phi))
         rows["Goldstein"].append(aligned_rmse(baselines.goldstein_unwrap(psi), phi))
@@ -99,13 +103,13 @@ def main() -> None:
         # no coherence band needed) -- the hand-designed baseline for learned costs
         q = mcf.quality_map(psi)
         rows["MCF+statcost"].append(aligned_rmse(mcf.unwrap_mcf(psi, coherence=q), phi))
-        # oracle cost ceiling: best achievable with this solver given perfect costs
-        wx, wy = oracle_costs(psi, phi)
-        rows["MCF+oracle"].append(aligned_rmse(mcf.unwrap_mcf(psi, wx=wx, wy=wy), phi))
+        # GT-gradient reference cost (NOT a ceiling -- see audit/DIAGNOSIS.md sec.1)
+        wx, wy = gt_gradient_costs(psi, phi)
+        rows["MCF+GTgrad"].append(aligned_rmse(mcf.unwrap_mcf(psi, wx=wx, wy=wy), phi))
 
     print(f"\n=== MCF vs LS on '{args.source}/{args.split}'  ({n} samples) ===")
     print(f"  input residues / image : {np.mean(res_in):.1f}")
-    print(f"  oracle floor (GT-K)    : {np.nanmean(floor):.3f}")
+    print(f"  GT-K floor (aligned)   : {np.nanmean(floor):.3f}   <- the CEILING")
     print(f"  LS integrator      rmse: {np.nanmean(rows['LS']):.3f}")
     print(f"  quality-guided     rmse: {np.nanmean(rows['QG']):.3f}")
     print(f"  Goldstein branchcut rmse: {np.nanmean(rows['Goldstein']):.3f}")
@@ -113,10 +117,10 @@ def main() -> None:
         print(f"  SNAPHU (Chen&Zebker) rmse: {np.nanmean(rows['SNAPHU']):.3f}")
     print(f"  MCF (unit cost)    rmse: {np.nanmean(rows['MCF']):.3f}   residues_pred=0 (by construction)")
     print(f"  MCF (stat cost)    rmse: {np.nanmean(rows['MCF+statcost']):.3f}   <- hand-designed cost")
-    print(f"  MCF (ORACLE cost)  rmse: {np.nanmean(rows['MCF+oracle']):.3f}   <- CEILING for learned costs")
+    print(f"  MCF (GT-grad cost) rmse: {np.nanmean(rows['MCF+GTgrad']):.3f}   <- reference cost, NOT a bound")
     imp = 100 * (1 - np.nanmean(rows["MCF"]) / max(np.nanmean(rows["LS"]), 1e-9))
     print(f"  --> MCF beats LS by {imp:.0f}%.  Learned-cost target: drive {np.nanmean(rows['MCF']):.2f} "
-          f"toward oracle {np.nanmean(rows['MCF+oracle']):.2f} (floor {np.nanmean(floor):.2f}).")
+          f"toward the floor {np.nanmean(floor):.2f} (GT-grad ref {np.nanmean(rows['MCF+GTgrad']):.2f}).")
 
 
 if __name__ == "__main__":

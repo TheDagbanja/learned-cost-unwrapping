@@ -100,7 +100,10 @@ def main():
 
     ap = argparse.ArgumentParser()
     ap.add_argument("--product", required=True, help="HyP3 product dir")
-    ap.add_argument("--ours", required=True, help="our unwrapped GeoTIFF")
+    ap.add_argument("--ours", default=None, help="our unwrapped GeoTIFF (shorthand for --method ours=PATH)")
+    ap.add_argument("--method", action="append", default=[], metavar="NAME=PATH",
+                    help="additional unwrapped GeoTIFF to score, repeatable "
+                         "(e.g. --method phasenet2=outputs/rc_phasenet2.tif)")
     ap.add_argument("--gps", required=True, nargs="+",
                     help="one or more offset files (summed); NGL .txt or CSV. "
                          "Pass both Ridgecrest events to get the cumulative offset.")
@@ -112,6 +115,17 @@ def main():
     LAMBDA = float(args.wavelength)
     FOUR_PI_OVER_LAMBDA = 4.0 * np.pi / LAMBDA
 
+    methods = {}
+    if args.ours:
+        methods["ours"] = args.ours
+    for spec in args.method:
+        if "=" not in spec:
+            raise SystemExit(f"--method expects NAME=PATH, got {spec!r}")
+        name, path = spec.split("=", 1)
+        methods[name] = path
+    if not methods:
+        raise SystemExit("Give at least one --ours or --method NAME=PATH.")
+
     snaphu_f = _find(args.product, "_unw_phase")
     theta_f = _find(args.product, "_lv_theta")
     phi_f = _find(args.product, "_lv_phi")
@@ -120,37 +134,35 @@ def main():
     print(f"loaded {len(gps)} stations from {len(args.gps)} offset file(s) "
           f"({'summed cumulative' if len(args.gps) > 1 else 'single event'})")
     src_s = rasterio.open(snaphu_f)
-    src_o = rasterio.open(args.ours)
     src_t = rasterio.open(theta_f)
     src_p = rasterio.open(phi_f)
+    srcs = {n: rasterio.open(p) for n, p in methods.items()}
 
     recs = []
     for g in gps:
         th = sample_at(src_t, g["lon"], g["lat"])
         ph = sample_at(src_p, g["lon"], g["lat"])
         sn = sample_at(src_s, g["lon"], g["lat"])
-        ou = sample_at(src_o, g["lon"], g["lat"])
         if None in (th, ph, sn) or th == 0 or sn == 0:
             continue                                    # outside scene / nodata
         # LOS unit vector toward sensor; d_los>0 = toward sensor
         le, ln, lu = np.cos(th) * np.cos(ph), np.cos(th) * np.sin(ph), np.sin(th)
         d_los = g["de"] * le + g["dn"] * ln + g["du"] * lu
         gps_phase = -FOUR_PI_OVER_LAMBDA * d_los        # README sign: toward sensor -> -phase
-        recs.append(dict(station=g["station"], gps=gps_phase, snaphu=sn,
-                         ours=(ou if (ou is not None and ou != 0) else np.nan)))
+        rec = dict(station=g["station"], gps=gps_phase, snaphu=sn)
+        for n, sr in srcs.items():
+            v = sample_at(sr, g["lon"], g["lat"])
+            rec[n] = v if (v is not None and v != 0) else np.nan
+        recs.append(rec)
 
     if not recs:
         raise SystemExit("No GPS stations fell within the scene/coverage.")
     gps_p = np.array([r["gps"] for r in recs])
     sn_p = np.array([r["snaphu"] for r in recs])
-    ou_p = np.array([r["ours"] for r in recs])
-    in_ours = np.isfinite(ou_p)
 
     # self-calibrate the sign convention using SNAPHU (the trusted baseline):
     # SNAPHU must correlate POSITIVELY with GPS LOS phase; flip if not.
-    sign = 1.0
     if np.corrcoef(sn_p, gps_p)[0, 1] < 0:
-        sign = -1.0
         gps_p = -gps_p
         print("note: flipped GPS phase sign to match SNAPHU convention.")
 
@@ -161,43 +173,55 @@ def main():
 
     n_all = len(recs)
     m_all = np.ones(n_all, bool)
-    rmse_sn = resid_rmse(sn_p, gps_p, m_all)
-    print(f"\n=== GPS validation ({n_all} stations in scene; "
-          f"{int(in_ours.sum())} within our ROI) ===")
-    print(f"  SNAPHU vs GPS LOS : rmse {rmse_sn:.3f} rad "
-          f"({rmse_sn * LAMBDA / (4 * np.pi) * 100:.1f} cm)")
-    if in_ours.sum() >= 3:
-        m = in_ours
-        rs = resid_rmse(sn_p, gps_p, m)
-        ro = resid_rmse(ou_p, gps_p, m)
-        print(f"  on the {int(m.sum())} stations inside our ROI:")
-        print(f"    SNAPHU vs GPS : {rs:.3f} rad ({rs*LAMBDA/(4*np.pi)*100:.1f} cm)")
-        print(f"    OURS   vs GPS : {ro:.3f} rad ({ro*LAMBDA/(4*np.pi)*100:.1f} cm)")
-        better = "OURS" if ro < rs else "SNAPHU"
-        print(f"    --> closer to GPS: {better}  (delta {abs(ro-rs):.3f} rad)")
+    cm = LAMBDA / (4 * np.pi) * 100                     # rad -> cm
+
+    print()
+    print(f"=== GPS validation ({n_all} stations in scene) ===")
+    # Fair head-to-head: every method (and SNAPHU) on the SAME stations, i.e. the
+    # intersection of all method ROIs. SNAPHU alone also gets a whole-scene row,
+    # clearly labelled, since it is the only method covering the full scene.
+    common = np.ones(n_all, bool)
+    for n in methods:
+        common &= np.isfinite(np.array([r[n] for r in recs]))
+
+    print(f"{'method':16s}{'n':>4}{'RMSE (rad)':>12}{'RMSE (cm)':>11}")
+    rows = []
+    if common.sum() >= 3:
+        rows.append(("SNAPHU", int(common.sum()), resid_rmse(sn_p, gps_p, common)))
+        for n in methods:
+            v = np.array([r[n] for r in recs])
+            rows.append((n, int(common.sum()), resid_rmse(v, gps_p, common)))
+        for n, k, r in sorted(rows, key=lambda x: x[2]):
+            print(f"{n:16s}{k:>4}{r:>12.3f}{r*cm:>11.1f}")
     else:
-        print(f"  WARNING: only {int(in_ours.sum())} GPS stations inside our ROI; "
-              f"re-run unwrap_geotiff with a larger geotiff.size to cover more.")
+        print(f"  only {int(common.sum())} stations common to all methods -- "
+              f"pass fewer --method args or a larger ROI")
+    r_all = resid_rmse(sn_p, gps_p, m_all)
+    print()
+    print(f"  reference: SNAPHU over all {n_all} in-scene stations "
+          f"{r_all:.3f} rad ({r_all*cm:.1f} cm)  [NOT comparable to the table: "
+          f"different station set]")
 
     # per-station table + scatter
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
+    names = list(methods)
     with open(args.out + "_stations.csv", "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["station", "gps_phase", "snaphu_phase", "ours_phase"])
+        w.writerow(["station", "gps_phase", "snaphu_phase"] + [f"{n}_phase" for n in names])
         for r, gp in zip(recs, gps_p):
-            w.writerow([r["station"], f"{gp:.3f}", f"{r['snaphu']:.3f}",
-                        f"{r['ours']:.3f}" if np.isfinite(r["ours"]) else ""])
+            w.writerow([r["station"], f"{gp:.3f}", f"{r['snaphu']:.3f}"]
+                       + [f"{r[n]:.3f}" if np.isfinite(r[n]) else "" for n in names])
     print(f"  per-station: {args.out}_stations.csv")
     try:
         import matplotlib
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
-        off_s = (sn_p - gps_p).mean()
         fig, a = plt.subplots(figsize=(6, 6))
-        a.plot(gps_p, sn_p - off_s, "o", label="SNAPHU", alpha=0.7)
-        if in_ours.sum():
-            off_o = (ou_p[in_ours] - gps_p[in_ours]).mean()
-            a.plot(gps_p[in_ours], ou_p[in_ours] - off_o, "s", label="ours", alpha=0.7)
+        a.plot(gps_p, sn_p - (sn_p - gps_p).mean(), "o", label="SNAPHU", alpha=0.7)
+        for n in names:
+            v = np.array([r[n] for r in recs]); m = np.isfinite(v)
+            if m.sum():
+                a.plot(gps_p[m], v[m] - (v[m] - gps_p[m]).mean(), "s", label=n, alpha=0.7)
         lim = [gps_p.min(), gps_p.max()]
         a.plot(lim, lim, "k--", lw=1)
         a.set_xlabel("GPS LOS phase (rad)"); a.set_ylabel("InSAR unwrapped (rad, ref-aligned)")

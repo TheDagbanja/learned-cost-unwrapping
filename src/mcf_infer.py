@@ -84,8 +84,7 @@ def evaluate_learned_cost(model, loader, device, max_batches: Optional[int] = No
         for b in range(gt.shape[0]):
             learned.append(_aligned_rmse_np(phi_l[b], gt[b]))
             unit.append(_aligned_rmse_np(phi_u[b], gt[b]))
-            k = np.round((gt[b] - psi[b]) / mcf.TWO_PI)
-            floor.append(_aligned_rmse_np(psi[b] + mcf.TWO_PI * k, gt[b]))
+            floor.append(mcf.aligned_gtk_floor(psi[b], gt[b]))
     return {
         "rmse_learned": float(np.mean(learned)),
         "rmse_unit": float(np.mean(unit)),
