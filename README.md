@@ -15,6 +15,19 @@ University).
 
 ## Results
 
+> **Note on numbers.** The figures below reflect corrections to the evaluation
+> harness made *after* the conference submission, so they differ from the
+> submitted manuscript. Three changes: the error floor is now optimised jointly
+> with the reference offset (the earlier per-pixel definition is not a bound for
+> the aligned metric); the residue counter no longer takes the solution's own
+> gradient curl, which is identically zero for any congruent field; and SNAPHU is
+> run in its strongest configuration rather than with a pseudo-coherence quality
+> map. The corrected margins over SNAPHU are **41 %** (simulated) and **25 %**
+> (real), against 48 % and 43 % before. The row previously labelled *Oracle* is a
+> reference cost, not an upper bound, and is renamed accordingly. Every
+> derivation, including the tests that established each defect, is in
+> [`audit/DIAGNOSIS.md`](audit/DIAGNOSIS.md).
+
 Aligned RMSE in radians, all methods scored on identical scenes. SNAPHU is run
 with ENL-matched looks and the deformation cost mode. Every flow result is
 residue-free.
