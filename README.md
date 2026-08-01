@@ -207,8 +207,7 @@ A one-factor-at-a-time sweep, with three seeds on the decisive groups, found:
 @inproceedings{dagbanja2026learnedcost,
   title     = {Learned Statistical Costs for Network-Flow InSAR Phase Unwrapping},
   author    = {Dagbanja, Simon and Qian, Jiang and Lv, Haitao},
-  booktitle = {Proc. IEEE Asia-Pacific Conf. Geoscience, Electronics and Remote
-               Sensing Technology (AP-GARSS)},
+  booktitle = {},
   year      = {2026}
 }
 ```
