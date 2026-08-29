@@ -1,4 +1,4 @@
-# Learned Statistical Costs for Network-Flow InSAR Phase Unwrapping
+Learned Statistical Costs for Network-Flow InSAR Phase Unwrapping
 
 A phase unwrapper that keeps the rigorous minimum-cost-flow solver of SNAPHU and
 **learns its cost function** instead of deriving it by hand. A Swin Transformer
@@ -10,22 +10,21 @@ it is learned from data.
 
 Reference implementation for *"Learned Statistical Costs for Network-Flow InSAR
 Phase Unwrapping"* — Simon Dagbanja and Jiang Qian (University of Electronic
-Science and Technology of China), Lv Haitao (Aerospace Information Technology
+Science and Technology of China), Haitao Lv (Aerospace Information Technology
 University).
 
 ## Results
 
-> **Note on numbers.** The figures below reflect corrections to the evaluation
-> harness made *after* the conference submission, so they differ from the
-> submitted manuscript. Three changes: the error floor is now optimised jointly
-> with the reference offset (the earlier per-pixel definition is not a bound for
-> the aligned metric); the residue counter no longer takes the solution's own
-> gradient curl, which is identically zero for any congruent field; and SNAPHU is
-> run in its strongest configuration rather than with a pseudo-coherence quality
-> map. The corrected margins over SNAPHU are **41 %** (simulated) and **25 %**
-> (real), against 48 % and 43 % before. The row previously labelled *Oracle* is a
-> reference cost, not an upper bound, and is renamed accordingly. Every
-> derivation, including the tests that established each defect, is in
+> **Note on numbers.** The values below are the corrected values reported in the
+> submitted conference manuscript. They incorporate three evaluation-harness
+> corrections: the error floor is optimized jointly with the reference offset;
+> residue consistency is evaluated from the per-edge implied ambiguities rather
+> than from the unwrapped field's own gradient curl; and SNAPHU is run with
+> ENL-matched looks in deformation mode rather than with a pseudo-coherence
+> quality map. The resulting margins over SNAPHU are **41 %** (simulated) and
+> **25 %** (real). The row previously labelled *Oracle* is treated as a
+> GT-gradient-cost reference, not as an upper bound; only the ground-truth-$k$
+> floor is a bound. Derivations and diagnostic tests are documented in
 > [`audit/DIAGNOSIS.md`](audit/DIAGNOSIS.md).
 
 Aligned RMSE in radians, all methods scored on identical scenes. SNAPHU is run
@@ -41,18 +40,19 @@ residue-free.
   squares, within 0.14 rad of the achievable noise floor.
 - **25 %** below SNAPHU on the real subset.
 - On four Sentinel-1 coseismic interferograms (Ridgecrest, Amatrice, Gorkha,
-  Kumamoto) the method is residue-free, agrees with SNAPHU to a fraction of a
-  fringe where coherence is good, and matches GPS to about 2 cm, all without
-  retraining on real data.
+  Kumamoto), the method is residue-free, remains within one fringe of SNAPHU in
+  high-coherence regions, and matches the available GPS offsets to about 2 cm,
+  all without retraining on real data.
 
 Two caveats we state explicitly rather than bury. The **GT-gradient-cost** row is
 a reference cost built from the true per-edge cuts, **not an upper bound** —
 matching the true gradient field is not RMSE-optimal under noise, so it can be,
 and is, beaten. The **floor** is the only bound in the table. On the real subset
 reliability-guided unwrapping reaches 2.38 rad and beats every global solver,
-including the ground-truth-derived cost; that subset is noise-dominated (only
-0.66 % of edges carry a genuine discontinuity) and cannot adjudicate unwrapper
-accuracy. Both points are derived in [`audit/DIAGNOSIS.md`](audit/DIAGNOSIS.md).
+including the ground-truth-derived cost. The subset is strongly noise-dominated
+(only 0.66 % of edges carry a genuine discontinuity), so its RMSE is influenced
+substantially by whole-cycle slips as well as sub-cycle reconstruction error.
+Both points are derived in [`audit/DIAGNOSIS.md`](audit/DIAGNOSIS.md).
 
 Inference on a 1024×1024 scene takes about 0.7 s for the edge head and 11.8 s for
 the MCF solve on an RTX 3090.
@@ -66,7 +66,7 @@ wrapped phase psi
 Swin-Tiny + LoRA edge head      -> per-edge class probabilities p(k_e), k_e in {-1,0,+1}
       |
       v
-per-edge cost  c_e^+- = -log p(+-1)   (optionally + lambda * coherence)
+per-edge cost  c_e^± = -log p_e(±1)   (optionally + lambda * coherence)
       |
       v
 minimum-cost flow on the dual grid (Costantini)  -> residue-free integer field
@@ -83,7 +83,9 @@ DCT least-squares integration   -> unwrapped phase  +  reliability map
 - **Combined cost**: fuses the learned cost with a coherence term. Helps only
   where genuine coherence exists; see the ablation notes below.
 - **Differentiability** ([`src/mcf_diff.py`](src/mcf_diff.py)): blackbox-solver
-  gradient through the combinatorial step.
+  gradient through the combinatorial step. As reported in the paper, end-to-end
+  and directly supervised cost training reached the same operating point; the
+  headline benchmark numbers use the supervised-cost model.
 - **Reliability map**: per-pixel entropy of the edge ambiguity distributions. It
   predicts cycle errors with AUROC 0.911, against 0.836 for a conventional
   wrapped-gradient quality proxy.
@@ -99,10 +101,11 @@ validated in [`audit/DIAGNOSIS.md`](audit/DIAGNOSIS.md):
    implied ambiguity checked against the observed wrapped phase, which correctly
    reports thousands of inconsistent loops for least squares and zero for the
    flow methods.
-2. **Aggregate RMSE conflates whole-cycle slips with sub-cycle noise.** The
-   harness reports `slip%` and `RMSE_slipfree` alongside RMSE. On both splits the
-   slip-free error is nearly constant across methods and close to the floor, so
-   the ranking is a cycle-slip ranking rather than an accuracy ranking.
+2. **Aggregate RMSE mixes whole-cycle slips with sub-cycle noise.** The
+   harness therefore reports `slip%` and `RMSE_slipfree` alongside RMSE. These
+   diagnostics help distinguish improvements in integer-cycle selection from
+   differences in sub-cycle reconstruction error, especially on the
+   noise-dominated real TanDEM-X subset.
 3. **The floor must be optimized jointly with the reference offset**
    (`mcf.aligned_gtk_floor`). The usual per-pixel nearest-integer definition
    minimizes the *unaligned* residual and is not a bound for the aligned metric;
@@ -172,7 +175,7 @@ python -m scripts.gps_validate --product data/S1_data/<product folder> \
     --gps data/gps_m64_*.txt data/gps_m71_*.txt --out outputs/gps
 ```
 
-Train the edge head (settings used for the released model):
+Train the supervised edge-cost model (settings used for the reported benchmark results):
 
 ```bash
 python -m src.train regime=pretrain data.source=dlpu data.batch_size=8 \
@@ -207,7 +210,7 @@ A one-factor-at-a-time sweep, with three seeds on the decisive groups, found:
 @inproceedings{dagbanja2026learnedcost,
   title     = {Learned Statistical Costs for Network-Flow InSAR Phase Unwrapping},
   author    = {Dagbanja, Simon and Qian, Jiang and Lv, Haitao},
-  booktitle = {IEEE Asia-Pacific Geoscience and Remote Sensing Symposium (AP-GARSS},
+  booktitle = {IEEE Asia-Pacific Geoscience and Remote Sensing Symposium (AP-GARSS)},
   year      = {2026}
 }
 ```
