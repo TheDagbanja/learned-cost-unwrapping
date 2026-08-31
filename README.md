@@ -15,18 +15,6 @@ University).
 
 ## Results
 
-> **Note on numbers.** The values below are the corrected values reported in the
-> submitted conference manuscript. They incorporate three evaluation-harness
-> corrections: the error floor is optimized jointly with the reference offset;
-> residue consistency is evaluated from the per-edge implied ambiguities rather
-> than from the unwrapped field's own gradient curl; and SNAPHU is run with
-> ENL-matched looks in deformation mode rather than with a pseudo-coherence
-> quality map. The resulting margins over SNAPHU are **41 %** (simulated) and
-> **25 %** (real). The row previously labelled *Oracle* is treated as a
-> GT-gradient-cost reference, not as an upper bound; only the ground-truth-$k$
-> floor is a bound. Derivations and diagnostic tests are documented in
-> [`audit/DIAGNOSIS.md`](audit/DIAGNOSIS.md).
-
 Aligned RMSE in radians, all methods scored on identical scenes. SNAPHU is run
 with ENL-matched looks and the deformation cost mode. Every flow result is
 residue-free.
@@ -44,7 +32,7 @@ residue-free.
   high-coherence regions, and matches the available GPS offsets to about 2 cm,
   all without retraining on real data.
 
-Two caveats we state explicitly rather than bury. The **GT-gradient-cost** row is
+Two caveats. The **GT-gradient-cost** row is
 a reference cost built from the true per-edge cuts, **not an upper bound** —
 matching the true gradient field is not RMSE-optimal under noise, so it can be,
 and is, beaten. The **floor** is the only bound in the table. On the real subset
