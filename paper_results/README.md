@@ -1,4 +1,4 @@
-# Curated results for the JAG manuscript
+# Curated results for the manuscript
 
 This directory contains small, machine-readable outputs that support the
 tables and claims in **Learned Optimization Costs for Tail-Robust InSAR Phase
