@@ -1,0 +1,68 @@
+{
+  "protocol_version": 1,
+  "events": [
+    {
+      "name": "Ridgecrest",
+      "product": "data/S1_data/S1AA_20190704T135158_20190716T135159_VVP012_INT80_G_ueF_1138",
+      "ours": "outputs/ridgecrest_learned_unw.tif",
+      "uncertainty": "outputs/ridgecrest_uncertainty.tif",
+      "solvers": {
+        "ours": "outputs/ridgecrest_learned_unw.tif",
+        "snaphu": "auto:snaphu",
+        "denet": "outputs/ridgecrest_denet_unw.tif"
+      },
+      "gps": [
+        "data/gps_m64_ci38443183.txt",
+        "data/gps_m71_ci38457511.txt"
+      ],
+      "min_coherence": 0.5,
+      "patch_win": 2
+    },
+    {
+      "name": "Amatrice",
+      "product": "data/S1_data/S1AB_20160821T051116_20160827T051035_VVP006_INT80_G_ueF_C4BF",
+      "ours": "outputs/amatrice_learned_unw.tif",
+      "uncertainty": "outputs/amatrice_uncertainty.tif",
+      "solvers": {
+        "ours": "outputs/amatrice_learned_unw.tif",
+        "snaphu": "auto:snaphu",
+        "denet": "outputs/amatrice_denet_unw.tif"
+      },
+      "gps": [
+        "data/amatrice_gps.csv"
+      ],
+      "min_coherence": 0.5,
+      "patch_win": 2
+    },
+    {
+      "name": "Gorkha",
+      "product": "data/S1_data/S1AA_20150417T001920_20150429T001907_VVP012_INT80_G_ueF_EDE7",
+      "ours": "outputs/gorkha_learned_unw.tif",
+      "uncertainty": "outputs/gorkha_uncertainty.tif",
+      "solvers": {
+        "ours": "outputs/gorkha_learned_unw.tif",
+        "snaphu": "auto:snaphu",
+        "denet": "outputs/gorkha_denet_unw.tif"
+      },
+      "gps": [],
+      "min_coherence": 0.5,
+      "patch_win": 2
+    },
+    {
+      "name": "Kumamoto",
+      "product": "data/S1_data/S1AA_20160408T091355_20160420T091355_VVP012_INT80_G_ueF_3473",
+      "ours": "outputs/kumamoto_big_learned_unw.tif",
+      "uncertainty": "outputs/kumamoto_big_uncertainty.tif",
+      "solvers": {
+        "ours": "outputs/kumamoto_big_learned_unw.tif",
+        "snaphu": "auto:snaphu",
+        "denet": "outputs/kumamoto_big_denet_unw.tif"
+      },
+      "gps": [
+        "data/gps_kumamoto.txt"
+      ],
+      "min_coherence": 0.5,
+      "patch_win": 2
+    }
+  ]
+}

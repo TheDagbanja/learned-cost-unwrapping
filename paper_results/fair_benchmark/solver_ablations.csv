@@ -1,0 +1,5 @@
+split,method,rmse,slip,eps,residues,n
+test,signed learned cost + MCF,0.894997,0.009704,0.758904,0.000000,1000
+test,unsigned learned cost + MCF,0.915717,0.010403,0.763189,0.000000,1000
+test,unit cost + MCF,2.315211,0.090948,0.876956,0.000000,1000
+test,learned local argmax + LS,1.470687,0.071336,1.128875,1676.613000,1000

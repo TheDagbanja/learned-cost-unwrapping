@@ -1,0 +1,33 @@
+{
+  "definition": "Train on three mutually exclusive primary mechanisms and evaluate on the held-out fourth; topography and flat-earth phase are common nuisances.",
+  "domains": [
+    "fault",
+    "volcanic",
+    "subsidence",
+    "atmosphere"
+  ],
+  "protocol_version": 1,
+  "settings": {
+    "checkpoint_root": "checkpoints/lodo",
+    "device": "cuda",
+    "domains": [
+      "fault",
+      "volcanic",
+      "subsidence",
+      "atmosphere"
+    ],
+    "dry_run": false,
+    "epoch_size": 30000,
+    "epochs": 50,
+    "mode": "all",
+    "nlooks": [
+      4.0,
+      8.0,
+      16.0
+    ],
+    "result_root": "results/lodo",
+    "skip_existing": true,
+    "test_size": 1000,
+    "val_size": 500
+  }
+}

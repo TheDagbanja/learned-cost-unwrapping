@@ -95,6 +95,26 @@ def sample_at(src, lon, lat):
     return float(src.read(1)[row, col])
 
 
+def sample_patch_mean(src, lon, lat, win=2):
+    """Mean of a (2*win+1)^2 patch around a WGS84 lon/lat (reproject to raster CRS).
+
+    Used for coherence, where a single-pixel value is noisy: a station's local
+    decorrelation is better described by a small neighbourhood mean. Returns None
+    if the centre falls outside the raster.
+    """
+    import rasterio
+    from rasterio.warp import transform as warp_transform
+
+    xs, ys = warp_transform("EPSG:4326", src.crs, [lon], [lat])
+    row, col = src.index(xs[0], ys[0])
+    if not (0 <= row < src.height and 0 <= col < src.width):
+        return None
+    r0, r1 = max(row - win, 0), min(row + win + 1, src.height)
+    c0, c1 = max(col - win, 0), min(col + win + 1, src.width)
+    patch = src.read(1, window=((r0, r1), (c0, c1))).astype(np.float64)
+    return float(patch.mean())
+
+
 def main():
     import rasterio
 
@@ -110,6 +130,14 @@ def main():
     ap.add_argument("--out", default="outputs/gps")
     ap.add_argument("--wavelength", type=float, default=LAMBDA_C_BAND,
                     help="radar wavelength in m (C-band 0.0555 default; L-band ~0.2384)")
+    ap.add_argument("--min-coherence", type=float, default=0.0,
+                    help="drop stations whose local coherence (patch mean of the "
+                         "product's *_corr.tif) is below this, BEFORE scoring. 0 = "
+                         "keep all. Removes aliased/decorrelated pixels where the "
+                         "wrapped phase does not determine the answer, on a physical "
+                         "basis rather than post-hoc (see paper Sec. IV-C).")
+    ap.add_argument("--coh-win", type=int, default=2,
+                    help="half-width of the coherence patch (default 2 -> 5x5).")
     args = ap.parse_args()
     global LAMBDA, FOUR_PI_OVER_LAMBDA
     LAMBDA = float(args.wavelength)
@@ -129,6 +157,7 @@ def main():
     snaphu_f = _find(args.product, "_unw_phase")
     theta_f = _find(args.product, "_lv_theta")
     phi_f = _find(args.product, "_lv_phi")
+    corr_f = _find(args.product, "_corr")
 
     gps = load_offsets(args.gps)
     print(f"loaded {len(gps)} stations from {len(args.gps)} offset file(s) "
@@ -136,6 +165,7 @@ def main():
     src_s = rasterio.open(snaphu_f)
     src_t = rasterio.open(theta_f)
     src_p = rasterio.open(phi_f)
+    src_c = rasterio.open(corr_f)
     srcs = {n: rasterio.open(p) for n, p in methods.items()}
 
     recs = []
@@ -149,7 +179,9 @@ def main():
         le, ln, lu = np.cos(th) * np.cos(ph), np.cos(th) * np.sin(ph), np.sin(th)
         d_los = g["de"] * le + g["dn"] * ln + g["du"] * lu
         gps_phase = -FOUR_PI_OVER_LAMBDA * d_los        # README sign: toward sensor -> -phase
-        rec = dict(station=g["station"], gps=gps_phase, snaphu=sn)
+        coh = sample_patch_mean(src_c, g["lon"], g["lat"], win=args.coh_win)
+        rec = dict(station=g["station"], gps=gps_phase, snaphu=sn,
+                   coh=(coh if coh is not None else np.nan))
         for n, sr in srcs.items():
             v = sample_at(sr, g["lon"], g["lat"])
             rec[n] = v if (v is not None and v != 0) else np.nan
@@ -184,6 +216,18 @@ def main():
     for n in methods:
         common &= np.isfinite(np.array([r[n] for r in recs]))
 
+    # Coherence gate: drop stations at decorrelated/aliased pixels a priori and
+    # identically for every method, so the comparison is not decided by pixels
+    # where the wrapped phase does not determine the answer (paper Sec. IV-C).
+    if args.min_coherence > 0:
+        coh_arr = np.array([r["coh"] for r in recs])
+        keep = np.isfinite(coh_arr) & (coh_arr >= args.min_coherence)
+        dropped = [(r["station"], r["coh"]) for r, k in zip(recs, common & ~keep) if k]
+        common &= keep
+        print(f"  coherence gate (>= {args.min_coherence:.2f}, {2*args.coh_win+1}x"
+              f"{2*args.coh_win+1} patch): dropped {len(dropped)} common station(s)"
+              + (": " + ", ".join(f"{s}({c:.2f})" for s, c in dropped) if dropped else ""))
+
     print(f"{'method':16s}{'n':>4}{'RMSE (rad)':>12}{'RMSE (cm)':>11}")
     rows = []
     if common.sum() >= 3:
@@ -207,9 +251,11 @@ def main():
     names = list(methods)
     with open(args.out + "_stations.csv", "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["station", "gps_phase", "snaphu_phase"] + [f"{n}_phase" for n in names])
+        w.writerow(["station", "coherence", "gps_phase", "snaphu_phase"]
+                   + [f"{n}_phase" for n in names])
         for r, gp in zip(recs, gps_p):
-            w.writerow([r["station"], f"{gp:.3f}", f"{r['snaphu']:.3f}"]
+            coh_s = f"{r['coh']:.3f}" if np.isfinite(r["coh"]) else ""
+            w.writerow([r["station"], coh_s, f"{gp:.3f}", f"{r['snaphu']:.3f}"]
                        + [f"{r[n]:.3f}" if np.isfinite(r[n]) else "" for n in names])
     print(f"  per-station: {args.out}_stations.csv")
     try:
@@ -227,7 +273,8 @@ def main():
         a.set_xlabel("GPS LOS phase (rad)"); a.set_ylabel("InSAR unwrapped (rad, ref-aligned)")
         a.legend(frameon=False); fig.tight_layout()
         fig.savefig(args.out + "_scatter.png", dpi=130)
-        print(f"  scatter: {args.out}_scatter.png")
+        fig.savefig(args.out + "_scatter.pdf")
+        print(f"  scatter: {args.out}_scatter.png (+ .pdf)")
     except Exception as e:
         print(f"  (scatter skipped: {e})")
 

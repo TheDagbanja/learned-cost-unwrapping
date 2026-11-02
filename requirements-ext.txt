@@ -1,0 +1,20 @@
+# Hydra/OmegaConf must use the ANTLR runtime version their parsers were generated
+# with. Newer ANTLR runtimes fail at import with "ATN version 3 (expected 4)".
+hydra-core==1.3.2
+omegaconf==2.3.1
+antlr4-python3-runtime==4.9.3
+
+# Core repository requirements (torch and numpy) are otherwise assumed.
+scipy>=1.9
+matplotlib>=3.6
+scikit-learn>=1.3
+
+# Exact MCF backends. OR-Tools is preferred; NetworkX is the tested fallback.
+ortools>=9.8
+networkx>=3.1
+
+# Classical baseline used by the fair benchmark.
+snaphu
+
+# Not required by this adapter: the official WaveUNet uses pytorch-wavelets,
+# but ext_dl.waveunet includes a native differentiable Haar DWT.

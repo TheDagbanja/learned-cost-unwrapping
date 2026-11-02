@@ -1,0 +1,11 @@
+split,name,rmse,slip,eps,residues,family
+test_real,denet,3.1501,0.2461,1.4584,0.0,hybrid
+test_real,dmp_punet,5.4919,0.4780,1.7706,1169.7,dl
+test_real,unwrap_net,5.8970,0.5059,1.7538,1150.5,dl
+test_real,waveunet,6.1983,0.5243,1.7549,1158.2,dl
+test_real,phasenet2,6.2844,0.5475,1.7316,0.0,dl
+test_real,dlpu_cnn,6.4643,0.5780,1.8010,0.0,dl
+test_real,deeplabv3plus,6.5705,0.5614,1.7374,0.0,dl
+test_real,attention_unet,7.1020,0.6190,1.7882,0.0,dl
+test_real,gradient_net,7.5007,0.6051,1.7694,853.6,dl
+test_real,unetpp,8.0571,0.6722,1.7965,0.0,dl
