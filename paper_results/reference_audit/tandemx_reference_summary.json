@@ -1,0 +1,27 @@
+{
+  "pairs": 100,
+  "shapes": [
+    [
+      [
+        256,
+        256
+      ],
+      [
+        256,
+        256
+      ]
+    ]
+  ],
+  "local_variables": {
+    "wrapped": "input",
+    "reference": "output"
+  },
+  "coherence_in_release": false,
+  "geolocation_in_release": false,
+  "sensor_metadata_in_release": false,
+  "reference_construction_metadata_in_release": false,
+  "mean_circular_rmse_rad": 1.7169081389904022,
+  "mean_aligned_circular_rmse_rad": 1.2702176690101623,
+  "mean_resultant_length": 0.4401556457579136,
+  "median_reference_ptp_rad": 44.84814453125
+}

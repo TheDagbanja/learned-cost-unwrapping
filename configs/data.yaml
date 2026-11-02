@@ -25,6 +25,8 @@ root: ./data
 return_labels: true
 clamp_k: true          # clamp k_e to {-1, 0, +1}
 limit: null            # cap samples per split (null = use all); handy for CPU tests
+sample_strategy: head  # head | even | random; affects a limited split only
+sample_seed: 0         # deterministic seed when sample_strategy=random
 
 # --- Train-time augmentation (sim->real robustness; TRAIN split only) ---
 # Widens the training noise/geometry distribution toward the real regime so the
@@ -68,6 +70,26 @@ synthetic:
   pixel_spacing_m: 90.0
   wavelength_m: 0.0555         # Sentinel-1 C-band
   incidence_deg: 38.0
+  heading_deg: -12.0
+  deformation_types: [okada, mogi, subsidence, none]
+  deformation_weights: [0.4, 0.25, 0.25, 0.1]
+  # Strict LODO mode selects exactly one primary mechanism per scene.  The
+  # remaining topographic and flat-earth terms are shared nuisance factors;
+  # atmospheric fringes occur only in the atmosphere domain.
+  domain_protocol: false
+  domain_types: [fault, volcanic, subsidence, atmosphere]
+  domain_weights: [1.0, 1.0, 1.0, 1.0]
+  forced_domain: null
+  topo_enabled: true
+  topo_beta: 2.5
+  topo_max_rad: [5.0, 60.0]
+  atm_enabled: true
+  atm_beta: 2.67
+  atm_std_rad: [0.0, 4.0]
+  flat_enabled: true
+  flat_max_rad: [0.0, 20.0]
   looks: 8                     # more looks -> higher coherence -> less noise
   coherence_mean: [0.4, 0.95]  # [min, max] of the coherence field
+  coherence_beta: 3.0
+  low_coherence_patches: 3
   difficulty: 0.5             # signal scale -> fringe density. ~0.5 ~ realistic (~3% cuts)

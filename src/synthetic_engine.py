@@ -308,6 +308,14 @@ class SyntheticConfig:
     deformation_types: Sequence[str] = ("okada", "mogi", "subsidence", "none")
     deformation_weights: Sequence[float] = (0.4, 0.25, 0.25, 0.1)
 
+    # Strict leave-one-domain-out protocol. Exactly one primary mechanism is
+    # present per scene; atmospheric fringes are excluded from the other three
+    # domains, so holding out "atmosphere" is a real exclusion.
+    domain_protocol: bool = False
+    domain_types: Sequence[str] = ("fault", "volcanic", "subsidence", "atmosphere")
+    domain_weights: Sequence[float] = (1.0, 1.0, 1.0, 1.0)
+    forced_domain: Optional[str] = None
+
     topo_enabled: bool = True
     topo_beta: float = 2.5
     topo_max_rad: Tuple[float, float] = (5.0, 60.0)   # peak-to-peak fringe range
@@ -343,9 +351,13 @@ class SyntheticInterferogramGenerator:
         self.E, self.N = np.meshgrid(coords, coords)
 
     # -- individual components ------------------------------------------------
-    def _deformation_phase(self, rng: np.random.Generator) -> np.ndarray:
+    def _deformation_phase(self, rng: np.random.Generator,
+                           forced_kind: Optional[str] = None) -> np.ndarray:
         cfg = self.cfg
-        kind = rng.choice(cfg.deformation_types, p=np.asarray(cfg.deformation_weights) / np.sum(cfg.deformation_weights))
+        kind = forced_kind or rng.choice(
+            cfg.deformation_types,
+            p=np.asarray(cfg.deformation_weights) / np.sum(cfg.deformation_weights),
+        )
         extent = cfg.img_size * cfg.pixel_spacing_m
         if kind == "okada":
             uE, uN, uZ = okada85(
@@ -425,12 +437,35 @@ class SyntheticInterferogramGenerator:
         ``seed`` makes a scene reproducible (for episodic adaptation).
         """
         rng = np.random.default_rng(seed)
-        phi = (
-            self._deformation_phase(rng)
-            + self._topo_phase(rng)
-            + self._atm_phase(rng)
-            + self._flat_phase(rng)
-        )
+        domain = "mixed"
+        if self.cfg.domain_protocol:
+            allowed = tuple(self.cfg.domain_types)
+            valid = {"fault", "volcanic", "subsidence", "atmosphere"}
+            if not allowed or set(allowed) - valid:
+                raise ValueError(f"domain_types must be a nonempty subset of {sorted(valid)}")
+            if self.cfg.forced_domain is not None:
+                if self.cfg.forced_domain not in allowed:
+                    raise ValueError("forced_domain must be included in domain_types")
+                domain = self.cfg.forced_domain
+            else:
+                weights = np.asarray(self.cfg.domain_weights, dtype=float)
+                if len(weights) != len(allowed) or np.any(weights < 0) or weights.sum() <= 0:
+                    raise ValueError("domain_weights must match domain_types and have positive total")
+                domain = str(rng.choice(allowed, p=weights / weights.sum()))
+            mechanism = {
+                "fault": "okada", "volcanic": "mogi", "subsidence": "subsidence",
+                "atmosphere": "none",
+            }[domain]
+            primary = (self._atm_phase(rng) if domain == "atmosphere"
+                       else self._deformation_phase(rng, forced_kind=mechanism))
+            phi = primary + self._topo_phase(rng) + self._flat_phase(rng)
+        else:
+            phi = (
+                self._deformation_phase(rng)
+                + self._topo_phase(rng)
+                + self._atm_phase(rng)
+                + self._flat_phase(rng)
+            )
         phi = float(self.cfg.difficulty) * (phi - phi.mean())
 
         # Local fringe rate (wrapped-gradient magnitude) drives decorrelation.
@@ -447,12 +482,46 @@ class SyntheticInterferogramGenerator:
             "phi": phi.astype(np.float32),
             "wrapped": psi.astype(np.float32),
             "coherence": gamma.astype(np.float32),
+            "domain": domain,
         }
 
 
 # ===========================================================================
 # PyTorch dataset (on-the-fly generation)
 # ===========================================================================
+class SyntheticInSARDataset:
+    """Pickle-safe on-the-fly synthetic dataset.
+
+    The class is module-level so Windows/``spawn`` DataLoader workers can
+    serialize it.  Keeping it inside ``build_synthetic_dataset`` silently broke
+    every synthetic run with ``num_workers > 0`` on spawn-based platforms.
+    """
+
+    def __init__(self, config: SyntheticConfig, length: int, deterministic: bool,
+                 base_seed: int, input_grad: bool) -> None:
+        self.gen = SyntheticInterferogramGenerator(config)
+        self.length = length
+        self.deterministic = deterministic
+        self.base_seed = base_seed
+        self.input_grad = input_grad
+
+    def __len__(self) -> int:
+        return self.length
+
+    def __getitem__(self, idx: int) -> Dict[str, Any]:
+        from .dataset import build_sample
+
+        seed = (self.base_seed + idx) if self.deterministic else None
+        sample_data = self.gen.generate(seed=seed)
+        sample = build_sample(
+            wrapped=sample_data["wrapped"], absolute=sample_data["phi"],
+            coherence=sample_data["coherence"], name=f"synth_{idx:06d}",
+            weight_reduce="mean", input_grad=self.input_grad,
+        )
+        sample["domain"] = sample_data["domain"]
+        return sample
+
+
 def build_synthetic_dataset(
     cfg: Any, length: int = 30000, base_seed: int = 0,
     deterministic: Optional[bool] = None, input_grad: bool = True,
@@ -464,9 +533,6 @@ def build_synthetic_dataset(
     per-index seeds for reproducible eval episodes) can be forced via the
     argument, overriding any value in ``cfg``.
     """
-    from torch.utils.data import Dataset
-    from .dataset import build_sample
-
     def _get(key, default):
         if cfg is None:
             return default
@@ -477,33 +543,30 @@ def build_synthetic_dataset(
         pixel_spacing_m=float(_get("pixel_spacing_m", 90.0)),
         wavelength_m=float(_get("wavelength_m", 0.0555)),
         incidence_deg=float(_get("incidence_deg", 38.0)),
+        heading_deg=float(_get("heading_deg", -12.0)),
+        deformation_types=tuple(_get("deformation_types", ("okada", "mogi", "subsidence", "none"))),
+        deformation_weights=tuple(_get("deformation_weights", (0.4, 0.25, 0.25, 0.1))),
+        domain_protocol=bool(_get("domain_protocol", False)),
+        domain_types=tuple(_get("domain_types", ("fault", "volcanic", "subsidence", "atmosphere"))),
+        domain_weights=tuple(_get("domain_weights", (1.0, 1.0, 1.0, 1.0))),
+        forced_domain=_get("forced_domain", None),
+        topo_enabled=bool(_get("topo_enabled", True)),
+        topo_beta=float(_get("topo_beta", 2.5)),
+        topo_max_rad=tuple(_get("topo_max_rad", (5.0, 60.0))),
+        atm_enabled=bool(_get("atm_enabled", True)),
+        atm_beta=float(_get("atm_beta", 2.67)),
+        atm_std_rad=tuple(_get("atm_std_rad", (0.0, 4.0))),
+        flat_enabled=bool(_get("flat_enabled", True)),
+        flat_max_rad=tuple(_get("flat_max_rad", (0.0, 20.0))),
         looks=int(_get("looks", 8)),
         coherence_mean=tuple(_get("coherence_mean", (0.4, 0.95))),
+        coherence_beta=float(_get("coherence_beta", 3.0)),
+        low_coherence_patches=int(_get("low_coherence_patches", 3)),
         difficulty=float(difficulty if difficulty is not None else _get("difficulty", 0.5)),
     )
     det = bool(_get("deterministic", False)) if deterministic is None else deterministic
 
-    class SyntheticInSARDataset(Dataset):
-        """On-the-fly synthetic interferograms with coherence and labels."""
-
-        def __init__(self) -> None:
-            self.gen = SyntheticInterferogramGenerator(sc)
-            self.length = length
-            self.deterministic = det
-            self.base_seed = base_seed
-
-        def __len__(self) -> int:
-            return self.length
-
-        def __getitem__(self, idx: int) -> Dict[str, Any]:
-            seed = (self.base_seed + idx) if self.deterministic else None
-            s = self.gen.generate(seed=seed)
-            return build_sample(
-                wrapped=s["wrapped"], absolute=s["phi"], coherence=s["coherence"],
-                name=f"synth_{idx:06d}", weight_reduce="mean", input_grad=input_grad,
-            )
-
-    return SyntheticInSARDataset()
+    return SyntheticInSARDataset(sc, length, det, base_seed, input_grad)
 
 
 # ===========================================================================

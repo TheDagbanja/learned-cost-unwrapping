@@ -52,9 +52,33 @@ from . import utils
 
 _DLPU_SPLIT_DIRS = {
     "train": ("train_wrapped", "train_absolute"),
+    # Unaugmented view of the training files for classical-baseline calibration.
+    # Keeping a distinct split name prevents build_dataset() from enabling the
+    # train-time phase augmentation used by learned models.
+    "train_eval": ("train_wrapped", "train_absolute"),
     "test": ("test_wrapped", "test_absolute"),
     "test_real": ("test_wrapped_real", "test_absolute_real"),
 }
+
+
+def _select_files(
+    files: list[str], limit: Optional[int], strategy: str = "head", seed: int = 0
+) -> list[str]:
+    """Return a deterministic subset without changing the default head semantics."""
+    if limit is None or int(limit) >= len(files):
+        return files
+    count = int(limit)
+    if count <= 0:
+        raise ValueError(f"limit must be positive or null, got {limit!r}")
+    if strategy == "head":
+        return files[:count]
+    if strategy == "even":
+        indices = np.linspace(0, len(files) - 1, count, dtype=np.int64)
+    elif strategy == "random":
+        indices = np.sort(np.random.default_rng(int(seed)).choice(len(files), count, replace=False))
+    else:
+        raise ValueError("sample_strategy must be one of: head, even, random")
+    return [files[int(index)] for index in indices]
 
 
 # ---------------------------------------------------------------------------
@@ -126,6 +150,10 @@ def build_sample(
         "input": utils.encode_input(psi, include_grad=input_grad),  # (2 or 4, H, W)
         "wrapped": psi.unsqueeze(0),                  # (1, H, W)
         "name": name,
+        # A tensor flag survives DataLoader collation.  It prevents benchmark
+        # code from mistaking the all-one placeholder used when coherence is
+        # absent for a measured or simulated coherence band.
+        "coherence_available": torch.tensor(coherence is not None, dtype=torch.bool),
     }
 
     # --- coherence + edge weights ---
@@ -225,6 +253,8 @@ class InSARDLPUDataset(Dataset):
         return_labels: bool = True,
         clamp_k: bool = True,
         limit: Optional[int] = None,
+        sample_strategy: str = "head",
+        sample_seed: int = 0,
         input_grad: bool = True,
         transform: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
         augment: Optional[Callable[..., Any]] = None,
@@ -248,9 +278,7 @@ class InSARDLPUDataset(Dataset):
         files = sorted(glob.glob(os.path.join(self.wrapped_dir, "*.mat")))
         if not files:
             raise FileNotFoundError(f"No .mat files in {self.wrapped_dir!r}.")
-        if limit is not None:
-            files = files[:limit]
-        self.wrapped_files = files
+        self.wrapped_files = _select_files(files, limit, sample_strategy, sample_seed)
 
     def __len__(self) -> int:
         return len(self.wrapped_files)
@@ -418,6 +446,8 @@ def build_dataset(cfg: Any, split: str, difficulty: Optional[float] = None) -> D
             return_labels=bool(_cfg_get(cfg, "return_labels", True)),
             clamp_k=bool(_cfg_get(cfg, "clamp_k", True)),
             limit=_cfg_get(cfg, "limit", None),
+            sample_strategy=str(_cfg_get(cfg, "sample_strategy", "head")),
+            sample_seed=int(_cfg_get(cfg, "sample_seed", 0)),
             input_grad=input_grad,
             augment=augment,
         )

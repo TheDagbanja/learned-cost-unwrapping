@@ -34,6 +34,7 @@ from src import dataset as dataset_module
 from src import mcf
 from src import mcf_infer
 from src import baselines
+from src.metrics import decomposition_metrics, residue_balance_violations
 from src.models.unwrapper import PhaseUnwrapper
 
 
@@ -52,14 +53,7 @@ def _residues_pred(phi, psi, R_psi=None):
     field and so returned 0 for every method including least squares -- it could
     not discriminate anything (audit/DIAGNOSIS.md sec.0, validated sec.3-I2).
     """
-    if R_psi is None:
-        R_psi = mcf.residues(psi)
-    nx = np.round(((phi[:, 1:] - phi[:, :-1])
-                   - mcf.wrap(psi[:, 1:] - psi[:, :-1])) / mcf.TWO_PI)
-    ny = np.round(((phi[1:, :] - phi[:-1, :])
-                   - mcf.wrap(psi[1:, :] - psi[:-1, :])) / mcf.TWO_PI)
-    defect = nx[:-1, :] + ny[:, 1:] - nx[1:, :] - ny[:, :-1] + R_psi
-    return int(np.count_nonzero(defect))
+    return residue_balance_violations(phi, psi, R_psi)
 
 
 def _metrics(pred, gt, psi, R_psi=None):
@@ -70,12 +64,8 @@ def _metrics(pred, gt, psi, R_psi=None):
     a nonzero multiple of 2pi; ``rmse_slipfree`` removes those integer offsets and
     so measures the noise alone (audit/DIAGNOSIS.md sec.2).
     """
-    d = pred - gt
-    d = d - d.mean()
-    r = np.round(d / mcf.TWO_PI)
-    dsf = d - mcf.TWO_PI * r
-    return (float(np.sqrt((d ** 2).mean())), float((r != 0).mean()),
-            float(np.sqrt((dsf ** 2).mean())), _residues_pred(pred, psi, R_psi))
+    values = decomposition_metrics(pred, gt, psi, R_psi)
+    return values["rmse"], values["slip"], values["eps"], values["residues"]
 
 
 def _gt_gradient_costs(psi, phi):

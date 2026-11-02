@@ -1,0 +1,156 @@
+{
+  "metrics": {
+    "scope": "synthetic-domain risk ranking and held-out-scene calibration",
+    "calibration_scenes": 250,
+    "evaluation_scenes": 250,
+    "fit_pixels": 500000,
+    "evaluation_pixels": 1500000,
+    "error_prevalence": 0.0107,
+    "entropy_auroc": 0.9182459082063856,
+    "entropy_average_precision": 0.17059418076246385,
+    "gradient_proxy_auroc": 0.8318372219508869,
+    "gradient_proxy_average_precision": 0.05806120348319084,
+    "isotonic_brier": 0.009561184837151251,
+    "isotonic_ece_15": 0.0012685306761652268
+  },
+  "coverage": [
+    {
+      "retained_coverage": 0.5,
+      "flagged_fraction": 0.5,
+      "retained_error_rate": 0.00032533333333333334,
+      "relative_risk": 0.030404984423676014,
+      "flag_precision": 0.021074666666666665,
+      "error_recall": 0.984797507788162,
+      "threshold": 0.0030799278846153845
+    },
+    {
+      "retained_coverage": 0.7,
+      "flagged_fraction": 0.3,
+      "retained_error_rate": 0.0011028571428571428,
+      "relative_risk": 0.10307076101468625,
+      "flag_precision": 0.033093333333333336,
+      "error_recall": 0.9278504672897196,
+      "threshold": 0.006554848660111818
+    },
+    {
+      "retained_coverage": 0.8,
+      "flagged_fraction": 0.2,
+      "retained_error_rate": 0.0017525,
+      "relative_risk": 0.16378504672897196,
+      "flag_precision": 0.04649,
+      "error_recall": 0.8689719626168224,
+      "threshold": 0.01051023525817293
+    },
+    {
+      "retained_coverage": 0.9,
+      "flagged_fraction": 0.1,
+      "retained_error_rate": 0.0032496296296296297,
+      "relative_risk": 0.3037037037037037,
+      "flag_precision": 0.07775333333333333,
+      "error_recall": 0.7266666666666667,
+      "threshold": 0.028381962864721486
+    },
+    {
+      "retained_coverage": 0.95,
+      "flagged_fraction": 0.05,
+      "retained_error_rate": 0.004876491228070176,
+      "relative_risk": 0.4557468437448763,
+      "flag_precision": 0.12134666666666667,
+      "error_recall": 0.5670404984423676,
+      "threshold": 0.05718475073313783
+    }
+  ],
+  "reliability": [
+    {
+      "low": 0.0,
+      "high": 0.06666666666666667,
+      "confidence": 0.005969888869233162,
+      "observed": 0.005119867305102624,
+      "count": 1432459
+    },
+    {
+      "low": 0.06666666666666667,
+      "high": 0.13333333333333333,
+      "confidence": 0.09048065089000733,
+      "observed": 0.08024183114164059,
+      "count": 42509
+    },
+    {
+      "low": 0.13333333333333333,
+      "high": 0.2,
+      "confidence": 0.1751436585041141,
+      "observed": 0.16071000239865676,
+      "count": 12507
+    },
+    {
+      "low": 0.2,
+      "high": 0.26666666666666666,
+      "confidence": 0.24467361867331014,
+      "observed": 0.2472733469665985,
+      "count": 11736
+    },
+    {
+      "low": 0.26666666666666666,
+      "high": 0.3333333333333333,
+      "confidence": 0.2811206295743416,
+      "observed": 0.28,
+      "count": 325
+    },
+    {
+      "low": 0.3333333333333333,
+      "high": 0.4,
+      "confidence": 0.375,
+      "observed": 0.6153846153846154,
+      "count": 13
+    },
+    {
+      "low": 0.4,
+      "high": 0.4666666666666667,
+      "confidence": 0.4177369820799122,
+      "observed": 0.0,
+      "count": 1
+    },
+    {
+      "low": 0.5333333333333333,
+      "high": 0.6,
+      "confidence": 0.5677966101694915,
+      "observed": 0.609375,
+      "count": 128
+    },
+    {
+      "low": 0.6,
+      "high": 0.6666666666666666,
+      "confidence": 0.6271186440677966,
+      "observed": 0.5,
+      "count": 2
+    },
+    {
+      "low": 0.6666666666666666,
+      "high": 0.7333333333333333,
+      "confidence": 0.7067528961683963,
+      "observed": 0.6111111111111112,
+      "count": 162
+    },
+    {
+      "low": 0.7333333333333333,
+      "high": 0.8,
+      "confidence": 0.7883086533705235,
+      "observed": 0.6967213114754098,
+      "count": 122
+    },
+    {
+      "low": 0.8666666666666667,
+      "high": 0.9333333333333333,
+      "confidence": 0.9166666666666669,
+      "observed": 0.8888888888888888,
+      "count": 27
+    },
+    {
+      "low": 0.9333333333333333,
+      "high": 1.0,
+      "confidence": 1.0,
+      "observed": 0.7777777777777778,
+      "count": 9
+    }
+  ]
+}

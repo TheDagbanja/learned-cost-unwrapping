@@ -1,0 +1,129 @@
+{
+  "definitions": {
+    "calibration_claim": "ranking only; no real-domain probability calibration",
+    "cycle_disagreement": "any declared solver differs from the first by a nonzero integer cycle after median global-offset alignment",
+    "gps_rank_endpoint": "Spearman correlation between 5x5 mean entropy and absolute reference-aligned LOS residual",
+    "gps_tail": "highest-residual 20% of gated stations",
+    "review": "exact highest-entropy fraction, with stable tie handling"
+  },
+  "git_commit": "1db64bb3c5c8caa88dc10a3ac7c90208b7a4c29e",
+  "manifest": {
+    "path": "D:\\Research\\Phase Unwrapping\\Learned_Cost\\configs\\real_uncertainty_events.json",
+    "sha256": "0dd88438aaded37bf3cc98bb3007c18a16d74c0f3ded7f12f8b985a582be7334"
+  },
+  "protocol_version": 1,
+  "results": [
+    {
+      "cycle_disagreement_capture_at_05pct": 0.9426565242832066,
+      "cycle_disagreement_capture_at_10pct": 0.9754496654539904,
+      "cycle_disagreement_capture_at_20pct": 0.9863383112422723,
+      "cycle_disagreement_pixels": 39307,
+      "cycle_disagreement_prevalence": 0.016759559775351034,
+      "event": "Ridgecrest",
+      "gps_n": 17,
+      "gps_residual_entropy_p": 0.363295114375383,
+      "gps_residual_entropy_spearman": -0.23529411764705882,
+      "gps_upper_quintile_capture_at_20pct": 0.25,
+      "gps_upper_quintile_n": 4,
+      "n_solvers": 3,
+      "retained_disagreement_at_80pct": 0.00028620492272467084,
+      "retained_disagreement_at_90pct": 0.0004571698203488419,
+      "retained_disagreement_at_95pct": 0.0010116333345301784,
+      "solver_offsets_rad": {
+        "denet": 0.0,
+        "ours": 0.0,
+        "snaphu": 16.131349086761475
+      },
+      "solvers": [
+        "ours",
+        "snaphu",
+        "denet"
+      ],
+      "valid_pixels": 2345348
+    },
+    {
+      "cycle_disagreement_capture_at_05pct": 0.9593549448741155,
+      "cycle_disagreement_capture_at_10pct": 0.9878229389501398,
+      "cycle_disagreement_capture_at_20pct": 0.9944051341122264,
+      "cycle_disagreement_pixels": 6077,
+      "cycle_disagreement_prevalence": 0.005798210445365916,
+      "event": "Amatrice",
+      "gps_n": 23,
+      "gps_residual_entropy_p": 0.29915424751581193,
+      "gps_residual_entropy_spearman": 0.22628458498023715,
+      "gps_upper_quintile_capture_at_20pct": 0.2,
+      "gps_upper_quintile_n": 5,
+      "n_solvers": 3,
+      "retained_disagreement_at_80pct": 4.055029130613681e-05,
+      "retained_disagreement_at_90pct": 7.845024717128551e-05,
+      "retained_disagreement_at_95pct": 0.0002480724170589458,
+      "solver_offsets_rad": {
+        "denet": 0.0,
+        "ours": 0.0,
+        "snaphu": -5.422171592712402
+      },
+      "solvers": [
+        "ours",
+        "snaphu",
+        "denet"
+      ],
+      "valid_pixels": 1048082
+    },
+    {
+      "cycle_disagreement_capture_at_05pct": 0.9993093922651933,
+      "cycle_disagreement_capture_at_10pct": 1.0,
+      "cycle_disagreement_capture_at_20pct": 1.0,
+      "cycle_disagreement_pixels": 2896,
+      "cycle_disagreement_prevalence": 0.0028244372338070314,
+      "event": "Gorkha",
+      "gps_n": null,
+      "gps_residual_entropy_p": null,
+      "gps_residual_entropy_spearman": null,
+      "gps_upper_quintile_capture_at_20pct": null,
+      "gps_upper_quintile_n": null,
+      "n_solvers": 3,
+      "retained_disagreement_at_80pct": 0.0,
+      "retained_disagreement_at_90pct": 0.0,
+      "retained_disagreement_at_95pct": 2.0532405268615193e-06,
+      "solver_offsets_rad": {
+        "denet": 0.0,
+        "ours": 0.0,
+        "snaphu": 15.153284311294556
+      },
+      "solvers": [
+        "ours",
+        "snaphu",
+        "denet"
+      ],
+      "valid_pixels": 1025337
+    },
+    {
+      "cycle_disagreement_capture_at_05pct": 0.23555126425683423,
+      "cycle_disagreement_capture_at_10pct": 0.43143322672138074,
+      "cycle_disagreement_capture_at_20pct": 0.7296216281455555,
+      "cycle_disagreement_pixels": 414275,
+      "cycle_disagreement_prevalence": 0.1336313204525998,
+      "event": "Kumamoto",
+      "gps_n": 41,
+      "gps_residual_entropy_p": 0.6800995863762875,
+      "gps_residual_entropy_spearman": 0.06637630662020907,
+      "gps_upper_quintile_capture_at_20pct": 0.4444444444444444,
+      "gps_upper_quintile_n": 9,
+      "n_solvers": 3,
+      "retained_disagreement_at_80pct": 0.045163777207999495,
+      "retained_disagreement_at_90pct": 0.08442038335268734,
+      "retained_disagreement_at_95pct": 0.10753084671730626,
+      "solver_offsets_rad": {
+        "denet": 0.0,
+        "ours": 0.0,
+        "snaphu": -3.16265869140625
+      },
+      "solvers": [
+        "ours",
+        "snaphu",
+        "denet"
+      ],
+      "valid_pixels": 3100134
+    }
+  ]
+}

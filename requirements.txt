@@ -27,10 +27,6 @@ numpy>=1.24,<2.1
 scipy>=1.10               # loadmat (.mat v5), DCT-based Poisson solver
 scikit-image>=0.21        # optional phase/residue utilities for evaluation
 
-# --- Minimum-cost-flow solver backends ---
-ortools>=9.7              # fast, exact network-simplex backend for the MCF solver
-networkx>=3.1             # pure-python fallback solver
-
 # --- Geospatial I/O (Stream C: real Sentinel-1 GeoTIFF / ENVI) ---
 rasterio>=1.3             # multi-band GeoTIFF / ENVI reader (wrapped + coherence)
 

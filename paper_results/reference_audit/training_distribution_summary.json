@@ -1,0 +1,16 @@
+{
+  "sampled_scenes": 1000,
+  "selection": "evenly spaced indices over the 30,000-scene training split",
+  "sampled_edges": 2048000,
+  "coherence_available": false,
+  "nonzero_ambiguity_fraction_sampled": 0.01672021484375,
+  "outside_three_class_fraction_sampled": 3.466796875e-05,
+  "gradient_over_pi_fraction_sampled": 0.00285693359375,
+  "phase_ptp_median_rad": 37.73678016662598,
+  "phase_ptp_p95_rad": 164.7455383300781,
+  "representative_files": [
+    "027837.mat",
+    "000091.mat",
+    "015405.mat"
+  ]
+}

@@ -25,9 +25,14 @@ lightning_logs/
 # Generated outputs (figures, unwrapped rasters, per-station tables)
 # ---------------------------------------------------------------------------
 outputs/
+results/
+logs/
+tmp/
 *.png
 *.jpg
 *.jpeg
+*.npy
+*.npz
 
 # ---------------------------------------------------------------------------
 # Manuscript (kept out of the repository)
@@ -63,4 +68,21 @@ env/
 .DS_Store
 Thumbs.db
 .claude/
+.agents/
+.codex/
+.aws/
 .env
+
+# ---------------------------------------------------------------------------
+# Local overlay / sync debris and duplicated directory trees
+# ---------------------------------------------------------------------------
++1.9
+25k
+=3.6
+audit/audit/
+configs/configs/
+scripts/scripts/
+src/src/
+ext_dl/ext_dl/
+IMPLEMENTATION_NOTES.md
+PENDING_SERVER_RUNS.md

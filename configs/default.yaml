@@ -148,3 +148,22 @@ checkpoint:
   dir: ./checkpoints
   save_every: 1             # epochs
   resume: null              # path to resume from
+
+# --- ext_dl deep-learning baselines (journal extension) ---
+# Which network to train (ext_dl/train_dl.py). One of: dlpu_cnn, phasenet2,
+# gradient_net, attention_unet, deeplabv3plus, unetpp, denet.
+baseline: dlpu_cnn
+ext:
+  # Which trained baselines ext_dl/eval_dl.py scores (looks for {name}_last.pt
+  # in checkpoint.dir). Defaults to all seven.
+  methods: [dlpu_cnn, phasenet2, gradient_net, attention_unet, deeplabv3plus, unetpp, denet]
+  # Auditable benchmark defaults (scripts/eval_fair_benchmark.py).  The DLPU
+  # benchmark has no measured coherence, so supplied coherence is deliberately
+  # not a default SNAPHU information mode.
+  out_dir: ./results/fair_benchmark
+  fair_methods: [learned_signed, learned_unsigned, unit_mcf, snaphu]
+  fair_snaphu_sources: [uniform, phase_proxy]
+  fair_snaphu_costs: [defo, smooth]
+  fair_snaphu_nlooks: [1, 4, 8, 16]
+  fair_uniform_coherence: 1.0
+  denet_checkpoint: null

@@ -1,0 +1,34 @@
+{
+  "paper_title": "Learned Optimization Costs for Tail-Robust InSAR Phase Unwrapping",
+  "curated_on": "2026-11-02",
+  "primary_simulated_split_scenes": 1000,
+  "primary_snaphu_selection": {
+    "rule": "minimum mean aligned RMSE on an independent unaugmented calibration subset",
+    "information": "phase_proxy",
+    "cost_mode": "smooth",
+    "nlooks": 16
+  },
+  "checkpoint_identities": {
+    "edge_predictor": {
+      "sha256": "c09dbc6c4669ad04b8135253f4dcd02bd91f8e13970d17cf23111348fa7316bc",
+      "bytes": 383521311
+    },
+    "denet": {
+      "sha256": "8ccd2d07e5dac56b39e0b7242eef44e2711e70160d66b0396d393a37ce4dbd72",
+      "bytes": 1283001
+    }
+  },
+  "distribution_regimes": [
+    "in-distribution simulated test",
+    "controlled synthetic shift",
+    "strict leave-one-mechanism-out",
+    "TanDEM-X/SRTM reference subset",
+    "zero-shot Sentinel-1 transfer"
+  ],
+  "non_redistributed": [
+    "source datasets",
+    "model checkpoints",
+    "large per-scene tables",
+    "Sentinel-1 GeoTIFF products"
+  ]
+}
